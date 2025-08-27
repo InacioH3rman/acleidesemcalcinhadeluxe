@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>A CLEIDE SEM CALCINHA</title>
+    <style>
+      :root {
+        --sprite-size: 120px; /* ajuste o tamanho da imagem aqui */
+      }
+      html, body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        background: #fff; /* fundo branco */
+        overflow: hidden; /* nada de scroll, tudo fica na tela */
+        cursor: pointer; /* indica que a tela é clicável */
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, Helvetica, sans-serif;
+      }
+      /* texto central */
+      #centerText {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        font-size: clamp(18px, 4vw, 40px);
+        font-weight: 700;
+        color: #111;
+        user-select: none;
+        pointer-events: none; /* clicks passam por cima do texto */
+        line-height: 1.2;
+      }
+
+      .sprite {
+        position: fixed;
+        width: var(--sprite-size);
+        height: var(--sprite-size);
+        object-fit: contain;
+        will-change: transform;
+        user-select: none;
+        -webkit-user-drag: none;
+        pointer-events: none; /* imagens não capturam o clique */
+        filter: drop-shadow(0 8px 16px rgba(0,0,0,.15));
+      }
+
+      /* dica sutil no rodapé (opcional) */
+      .hint {
+        position: fixed;
+        left: 50%;
+        bottom: 12px;
+        transform: translateX(-50%);
+        font-size: 12px;
+        color: #666;
+        user-select: none;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="centerText">A CLEIDE SEM CALCINHA</div>
+    <div class="hint"></div>
+
+    <script>
+      // ===== CONFIGURAÇÕES BÁSICAS =====
+      // Coloque aqui o caminho da sua imagem e do seu áudio.
+      // Ex.: se você tiver 'minha-imagem.png' e 'meu-audio.mp3' na mesma pasta que este HTML,
+      // basta usar os nomes dos arquivos.
+      const IMG_SRC = 'csc.png';   // <- troque para sua imagem
+      const SOUND_SRC = 'a-cleide-sem-calcinha-com-trovao.mp3'; // <- troque para seu áudio
+
+      // Velocidade base (pixels/segundo). Em cada clique sorteamos valores nessa faixa.
+      const SPEED_MIN = 2000;
+      const SPEED_MAX = 4000;
+
+      // Rotação maluca (graus por segundo) para dar um efeito "loucamente".
+      const ROT_MIN = -360;
+      const ROT_MAX =  360;
+
+      // ===== IMPLEMENTAÇÃO =====
+      const sprites = []; // {el, x, y, vx, vy, vr, w, h}
+      let lastTime = null;
+      let running = false;
+
+      // Pré-carrega a imagem (melhora primeira aparição)
+      const preloadImg = new Image();
+      preloadImg.src = IMG_SRC;
+
+      // Mantém dimensões visíveis para colisão
+      const SPRITE_W = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sprite-size')) || 120;
+      const SPRITE_H = SPRITE_W; // quadrado por padrão
+
+      function rand(min, max) {
+        return Math.random() * (max - min) + min;
+      }
+
+      function sign() {
+        return Math.random() < 0.5 ? -1 : 1;
+      }
+
+      function spawnSprite(x, y) {
+        const el = document.createElement('img');
+        el.src = IMG_SRC;
+        el.className = 'sprite';
+
+        // Garante que nasça dentro dos limites visíveis
+        const maxX = innerWidth - SPRITE_W;
+        const maxY = innerHeight - SPRITE_H;
+        const startX = Math.max(0, Math.min(x - SPRITE_W / 2, maxX));
+        const startY = Math.max(0, Math.min(y - SPRITE_H / 2, maxY));
+
+        // Sorteia velocidade X/Y e rotação
+        // move em qualquer direção com um módulo entre SPEED_MIN e SPEED_MAX
+        const speed = rand(SPEED_MIN, SPEED_MAX);
+        const angle = Math.random() * Math.PI * 2; // 0..2pi
+        const vx = Math.cos(angle) * speed;
+        const vy = Math.sin(angle) * speed;
+        const vr = rand(ROT_MIN, ROT_MAX); // rotação por segundo
+
+        // Estado do sprite
+        const s = {
+          el,
+          x: startX,
+          y: startY,
+          vx,
+          vy,
+          vr,
+          r: 0, // ângulo atual
+          w: SPRITE_W,
+          h: SPRITE_H,
+        };
+
+        document.body.appendChild(el);
+        el.style.transform = `translate(${s.x}px, ${s.y}px) rotate(0deg)`;
+        sprites.push(s);
+
+        // Toca o áudio a cada clique (cria uma instância para permitir sobreposição)
+        const audio = new Audio(SOUND_SRC);
+        audio.play().catch(() => { /* silenciosamente ignora problemas de autoplay */ });
+
+        if (!running) {
+          running = true;
+          lastTime = performance.now();
+          requestAnimationFrame(tick);
+        }
+      }
+
+      function tick(now) {
+        const dt = Math.min(0.05, (now - lastTime) / 1000); // s, clamp evita "teleporte" em quedas de frame
+        lastTime = now;
+
+        const maxX = innerWidth;
+        const maxY = innerHeight;
+
+        for (const s of sprites) {
+          // Atualiza posição
+          s.x += s.vx * dt;
+          s.y += s.vy * dt;
+          s.r += s.vr * dt;
+
+          // Colisão com paredes (quicar)
+          if (s.x <= 0) {
+            s.x = 0;
+            s.vx = Math.abs(s.vx);
+          } else if (s.x + s.w >= maxX) {
+            s.x = maxX - s.w;
+            s.vx = -Math.abs(s.vx);
+          }
+
+          if (s.y <= 0) {
+            s.y = 0;
+            s.vy = Math.abs(s.vy);
+          } else if (s.y + s.h >= maxY) {
+            s.y = maxY - s.h;
+            s.vy = -Math.abs(s.vy);
+          }
+
+          // Aplica no DOM
+          s.el.style.transform = `translate(${s.x}px, ${s.y}px) rotate(${s.r}deg)`;
+        }
+
+        if (sprites.length > 0) {
+          requestAnimationFrame(tick);
+        } else {
+          running = false;
+        }
+      }
+
+      // Clique em qualquer lugar da tela para criar um sprite
+      window.addEventListener('pointerdown', (e) => {
+        // Posição do clique
+        const x = e.clientX;
+        const y = e.clientY;
+        spawnSprite(x, y);
+      }, { passive: true });
+
+      // Se a janela for redimensionada, não precisamos recalcular nada além dos limites,
+      // que já são lidos a cada frame (innerWidth/innerHeight). As imagens continuam quicando.
+
+      // Opcional: primeira interação mostra um sprite para o usuário entender
+      // (comente se não quiser)
+      // window.addEventListener('load', () => {
+      //   spawnSprite(innerWidth/2, innerHeight/2);
+      // });
+    </script>
+  </body>
+</html>
